@@ -8,3 +8,9 @@ flask[async]
 flask
 flask-cors
 uvicorn
+openai
+Werkzeug
+geocoder
+folium
+requests
+pytest

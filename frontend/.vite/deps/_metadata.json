@@ -1,0 +1,49 @@
+{
+  "hash": "d7156472",
+  "configHash": "9887a170",
+  "lockfileHash": "ac0ff854",
+  "browserHash": "6779ba45",
+  "optimized": {
+    "react": {
+      "src": "../../node_modules/react/index.js",
+      "file": "react.js",
+      "fileHash": "08614ccb",
+      "needsInterop": true
+    },
+    "react-dom/client": {
+      "src": "../../node_modules/react-dom/client.js",
+      "file": "react-dom_client.js",
+      "fileHash": "5f553e83",
+      "needsInterop": true
+    },
+    "@livekit/components-react": {
+      "src": "../../node_modules/@livekit/components-react/dist/index.mjs",
+      "file": "@livekit_components-react.js",
+      "fileHash": "4a31cef0",
+      "needsInterop": false
+    },
+    "axios": {
+      "src": "../../node_modules/axios/index.js",
+      "file": "axios.js",
+      "fileHash": "b1ffad4e",
+      "needsInterop": false
+    },
+    "livekit-client": {
+      "src": "../../node_modules/livekit-client/dist/livekit-client.esm.mjs",
+      "file": "livekit-client.js",
+      "fileHash": "1c108b5a",
+      "needsInterop": false
+    }
+  },
+  "chunks": {
+    "chunk-ULSRCYB6": {
+      "file": "chunk-ULSRCYB6.js"
+    },
+    "chunk-IVIU5QCM": {
+      "file": "chunk-IVIU5QCM.js"
+    },
+    "chunk-G3PMV62Z": {
+      "file": "chunk-G3PMV62Z.js"
+    }
+  }
+}

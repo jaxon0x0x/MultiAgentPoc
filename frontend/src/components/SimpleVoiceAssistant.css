@@ -1,0 +1,56 @@
+.voice-assistant-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+  }
+
+  .transcript-container {
+    flex: 1;
+    overflow-y: auto;
+    border: 1px solid #e0e0e0;
+    border-radius: 14px;
+    padding: 1rem;
+    background: #f8f9fb;
+    margin-bottom: 1rem;
+  }
+
+  .transcript-container .message {
+    margin-bottom: 0.75rem;
+  }
+
+  .no-messages {
+    color: #777;
+  }
+
+  .voice-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .visualizer-container {
+    height: 140px;
+  }
+
+  .voice-controls .control-section {
+    display: none;
+  }
+
+  .voice-assistant-container .conversation {
+    display: none;
+  }
+
+  .message {
+    display: flex;
+    gap: 0.35rem;
+    align-items: baseline;
+  }
+
+  .message strong {
+    font-weight: 600;
+  }
+
+  .message-text {
+    color: var(--text-color);
+  }

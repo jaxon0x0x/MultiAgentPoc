@@ -1,21 +1,19 @@
-from __future__ import annotations
-from livekit.agents import (
-    AutoSubscribe,
-    JobContext,
-    WorkerOptions,
-    cli,
-    llm
-)
+import logging
+import json
+import asyncio
+from livekit.agents import AutoSubscribe, JobContext, WorkerOptions, cli, llm
 from livekit.agents.multimodal import MultimodalAgent
 from livekit.plugins.openai.realtime import RealtimeModel
 from dotenv import load_dotenv
-import os
 from api import AssistantFnc
+from prompts import WELCOME_MESSAGE, INSTRUCTIONS
+
 load_dotenv()
-from prompts import WELCOME_MESSAGE, INSTRUCTIONS, LOOKUP_VIN_MESSAGE
+logger = logging.getLogger("agent")
 
-
+# Entrypoint for the agent worker
 async def entrypoint(ctx: JobContext):
+    logger.info(f"Connecting to {ctx.room.name}")
     await ctx.connect(auto_subscribe=AutoSubscribe.SUBSCRIBE_ALL)
     await ctx.wait_for_participant()
 
@@ -26,46 +24,42 @@ async def entrypoint(ctx: JobContext):
         modalities=["audio", "text"]
     )
 
-    assistant_fnc = AssistantFnc()
-    assistant = MultimodalAgent(model=model, fnc_ctx=assistant_fnc)
-    assistant.start(ctx.room)
+# Initialize Agent with Tool Functionality and connect to Room
+    fnc = AssistantFnc()
+    agent = MultimodalAgent(model=model, fnc_ctx=fnc)
+    agent.start(ctx.room)
 
+# Choosing the first session for interaction from the realtime model
     session = model.sessions[0]
-    session.conversation.item.create(
-        llm.ChatMessage(
-            role="assistant",
-            content=WELCOME_MESSAGE
-        )
-    )
+    session.conversation.item.create(llm.ChatMessage(role="assistant", content=WELCOME_MESSAGE))
     session.response.create()
 
-    @session.on("user_speach_commited")
-    def on_user_speach_commited(msg: llm.ChatMessage):
-        if isinstance(msg.content, list):
-            msg.content = "\n".join("[image]" if isinstance(x, llm.ChatImage) else x for x in msg)
+# Handle incoming image data from clients
+    @ctx.room.on("data_received")
+    def on_data(payload):
+        # Handle image-share topic brutal way because model halucination
+        if payload.topic == "image-share":
+            try:
+                data = json.loads(payload.data.decode("utf-8"))
+                analysis = data.get("analysis", "")
 
-        if assistant_fnc.has_car():
-            handle_query(msg)
-        else:
-            find_profile(msg)
+                fnc.set_photo_analysis(analysis)
+                # Should be awaited but callback can't be async, so could be as a background job if needed
+                fnc.save_image_url(data.get("url"))
 
-        def find_profile(msg: llm.ChatMessage):
-            session.conversation.item.create(
-                llm.ChatMessage(
-                    role="system",
-                    content=LOOKUP_VIN_MESSAGE(msg)
+                prompt = (
+                    f"SYSTEM: New image uploaded. ANALYSIS:\n{analysis}\n"
+                    "INSTRUCTION: Answer user questions based on this. "
+                    "Do NOT summarize this in tool calls; system does it automatically."
                 )
-            )
-            session.response.create()
+                session.conversation.item.create(llm.ChatMessage(role="system", content=prompt))
+                session.response.create()
+            except Exception as e:
+                logger.error(f"Data error: {e}")
 
-        def handle_query(msg: llm.ChatMessage):
-            session.conversation.item.create(
-                llm.ChatMessage(
-                    role="user",
-                    content=msg.content
-                )
-            )
-            session.response.create()
+    # Keep alive
+    await ctx.room.disconnect_future
+
+
 if __name__ == "__main__":
     cli.run_app(WorkerOptions(entrypoint_fnc=entrypoint))
-

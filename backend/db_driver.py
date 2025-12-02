@@ -1,19 +1,18 @@
-import sqlite3
-from typing import Optional
 from dataclasses import dataclass
 from contextlib import contextmanager
+import sqlite3
+from typing import List
 
 
 @dataclass
-class Car:
-    vin: str
-    make: str
-    model: str
-    year: int
+class EmergencyService:
+    service_type: str
+    city: str
+    email: str
 
 
 class DatabaseDriver:
-    def __init__(self, db_path: str = "auto_db.sqlite"):
+    def __init__(self, db_path: str = "sos.sqlite"):
         self.db_path = db_path
         self._init_db()
 
@@ -28,37 +27,94 @@ class DatabaseDriver:
     def _init_db(self):
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS cars (
-                    vin TEXT PRIMARY KEY,
-                    make TEXT NOT NULL,
-                    model TEXT NOT NULL,
-                    year INTEGER NOT NULL
+            cursor.execute("DROP TABLE IF EXISTS emergency_services")
+            cursor.execute(
+                """
+                CREATE TABLE emergency_services (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    service_type TEXT NOT NULL,
+                    city TEXT NOT NULL,
+                    email TEXT NOT NULL
                 )
-            """)
+                """
+            )
+            self._seed_services(cursor)
             conn.commit()
 
-    def create_car(self, vin: str, make: str, model: str, year: int) -> Car:
+    def _seed_services(self, cursor) -> None:
+        cursor.execute("SELECT COUNT(1) FROM emergency_services")
+        if cursor.fetchone()[0] > 0:
+            return
+
+        cities = [
+            "Warsaw",
+            "Krakow",
+            "Lodz",
+            "Wroclaw",
+            "Poznan",
+            "Gdansk",
+            "Szczecin",
+            "Lublin",
+            "Katowice",
+            "Bialystok",
+        ]
+        services = []
+        for city in cities:
+            if city == "Bialystok":
+                email = "wierzbowiczjan@gmail.com"
+                services.extend([
+                    ("hospital", city, email),
+                    ("firestation", city, email),
+                    ("policestation", city, email),
+                ])
+                continue
+            services.append(("hospital", city, f"hospital@{city.lower()}.gov.pl"))
+            services.append(("firestation", city, f"firestation@{city.lower()}.gov.pl"))
+            services.append(("policestation", city, f"police@{city.lower()}.gov.pl"))
+
+        cursor.executemany(
+            "INSERT INTO emergency_services (service_type, city, email) VALUES (?, ?, ?)",
+            services,
+        )
+
+    def list_services(self) -> List[EmergencyService]:
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("SELECT service_type, city, email FROM emergency_services")
+            rows = cursor.fetchall()
+            return [EmergencyService(*row) for row in rows]
+
+    def get_services_by_city(self, city: str) -> List[EmergencyService]:
         with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
-                "INSERT INTO cars (vin, make, model, year) VALUES (?, ?, ?, ?)",
-                (vin, make, model, year)
+                "SELECT service_type, city, email FROM emergency_services WHERE city = ?",
+                (city,),
             )
-            conn.commit()
-            return Car(vin=vin, make=make, model=model, year=year)
+            rows = cursor.fetchall()
+            return [EmergencyService(*row) for row in rows]
 
-    def get_car_by_vin(self, vin: str) -> Optional[Car]:
+    def add_service(self, service: EmergencyService) -> None:
         with self._get_connection() as conn:
             cursor = conn.cursor()
-            cursor.execute("SELECT * FROM cars WHERE vin = ?", (vin,))
-            row = cursor.fetchone()
-            if not row:
-                return None
-
-            return Car(
-                vin=row[0],
-                make=row[1],
-                model=row[2],
-                year=row[3]
+            cursor.execute(
+                "INSERT INTO emergency_services (service_type, city, email) VALUES (?, ?, ?)",
+                (service.service_type, service.city, service.email),
             )
+            conn.commit()
+
+    def get_service_email(self, service_type: str, city: str | None = None) -> str | None:
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            query = "SELECT email FROM emergency_services WHERE service_type = ?"
+            params = [service_type]
+            if city:
+                query += " AND LOWER(city) = ?"
+                params.append(city.lower())
+            cursor.execute(query, tuple(params))
+            row = cursor.fetchone()
+            if row:
+                return row[0]
+            cursor.execute("SELECT email FROM emergency_services WHERE service_type = ? LIMIT 1", (service_type,))
+            row = cursor.fetchone()
+            return row[0] if row else None
